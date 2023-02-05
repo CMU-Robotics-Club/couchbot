@@ -1,0 +1,6 @@
+01 14 01 02 05 80 1E 00 42 01 05 00 64 0C 01 40 00 00 16 F4 - no throttle mode 1
+01 14 01 02 05 80 1E 00 42 01 05 00 64 0C 01 40 02 58 16 AE - full throttle mode 1
+01 14 01 02 0A 80 1E 00 42 01 05 00 64 0C 01 40 00 00 16 FB - no throttle mode 2
+01 14 01 02 0A 80 1E 00 42 01 05 00 64 0C 01 40 03 20 16 D8 - full throttle mode 2
+01 14 01 02 0F 80 1E 00 42 01 05 00 64 0C 01 40 00 00 16 FE - no throttle mode 3
+01 14 01 02 0F 80 1E 00 42 01 05 00 64 0C 01 40 03 E8 16 15 - full throttle mode 3
