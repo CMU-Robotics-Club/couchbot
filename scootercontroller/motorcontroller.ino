@@ -7,21 +7,21 @@ static const uint8_t MODES[] = {0x05, 0x0A, 0x0F};
 
 
 void motorControllerSetup() {
-  LeftMotor.begin(9600, SERIAL_8N1);
-  RightMotor.begin(9600, SERIAL_8N1, 16, 17);  // ESP32 Hardware Serial2
+  //LeftMotor.begin(9600, SERIAL_8N1);
+  //RightMotor.begin(9600, SERIAL_8N1, 16, 17);  // ESP32 Hardware Serial2
   // Serial1 is used for flash programming, so using it causes a kernel panic
 
-  sendInitCmd(LeftMotor);
-  sendInitCmd(RightMotor);
+  //sendInitCmd(LeftMotor);
+  //sendInitCmd(RightMotor);
 }
 
 void sendInitCmd(Stream &ser) {
-  ser.write(start_cmd_bytes, START_CMD_BYTES_LEN);
+  //ser.write(start_cmd_bytes, START_CMD_BYTES_LEN);
 }
 
 void commandMotor(Stream &ser, uint16_t val) {
   // Val ranges from 0 to 1000
-  uint8_t cmd[CMD_BYTES_LEN];
+  /*uint8_t cmd[CMD_BYTES_LEN];
   memcpy(cmd, cmd_bytes, CMD_BYTES_LEN);
 
   cmd[4] = MODES[current_mode];
@@ -29,7 +29,7 @@ void commandMotor(Stream &ser, uint16_t val) {
   cmd[17] = val & 0xFF;
   calc_checksum(cmd);
 
-  ser.write(cmd, CMD_BYTES_LEN);
+  ser.write(cmd, CMD_BYTES_LEN);*/
 }
 
 void calc_checksum(uint8_t *cmd) {

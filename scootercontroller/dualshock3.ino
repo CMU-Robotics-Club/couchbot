@@ -103,4 +103,11 @@ void dualshockNotify() {
     delay(250);
     Ps3.setRumble(0.0);
   }
+
+  if (Ps3.event.button_down.r1) {
+    reverse = true;
+  }
+  if (Ps3.event.button_up.r1) {
+    reverse = false;
+  }
 }

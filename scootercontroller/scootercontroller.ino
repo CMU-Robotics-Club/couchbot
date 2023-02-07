@@ -16,10 +16,23 @@ const static float i_max = 500;
 static float i_term_left = 0.0;
 static float i_term_right = 0.0;
 
+static bool reverse = false;
+
+#include <VescUart.h>
+
+VescUart vesc;
+
+#define CAN_ID_L 60
+#define CAN_ID_R 61
+
 void setup() {
   motorControllerSetup();
   dualshockSetup();
   delay(1000);
+  
+  Serial2.begin(115200);
+
+  vesc.setSerialPort(&Serial2);
 }
 
 float v_lag = 0;
@@ -28,8 +41,8 @@ float w_lag = 0;
 float w = 0;
 
 void loop() {
-  readLeftMotorSerial();
-  readRightMotorSerial();
+  //readLeftMotorSerial();
+  //readRightMotorSerial();
 
   mapJoystickToVandW(v, w);
 
@@ -62,16 +75,21 @@ void loop() {
 
   // Ensure that turning with no throttle
   // won't just throw away half the power
-  float discarded_turn = min(0.0f, min(vl, vr));
-  vl -= discarded_turn;
-  vr -= discarded_turn;
+  //float discarded_turn = min(0.0f, min(vl, vr));
+  //vl -= discarded_turn;
+  //vr -= discarded_turn;
 
-  vl = max(vl, 0.0f);
-  vr = max(vr, 0.0f);
+  //vl = max(vl, 0.0f);
+  //vr = max(vr, 0.0f);
   if (vl > 1000 || vr > 1000) {
     float divisor = max(vl, vr);
     vl = vl * 1000 / divisor;
     vr = vr * 1000 / divisor;
+  }
+
+  if (reverse) {
+    vl *= -1;
+    vr *= -1;
   }
 
   // P controller
@@ -83,14 +101,23 @@ void loop() {
 
   // Note that the mapping from RPM to power is almost 1:1 (0-750 to 0-1000), so
   // we don't need to do any extra math here.
-  int32_t power_l = (int32_t)(vl + vl_err * kp + i_term_left * ki);
-  int32_t power_r = (int32_t)(vr + vr_err * kp + i_term_right * ki);
+  //int32_t power_l = (int32_t)(vl + vl_err * kp + i_term_left * ki);
+  //int32_t power_r = (int32_t)(vr + vr_err * kp + i_term_right * ki);
 
-  power_l = constrain(power_l, 0, 1000);
-  power_r = constrain(power_r, 0, 1000);
+  int32_t power_l = (int32_t)(vl);
+  int32_t power_r = (int32_t)(vr);
 
-  commandMotor(LeftMotor, power_l);
-  commandMotor(RightMotor, power_r);
+  power_l = constrain(power_l, -1000, 1000);
+  power_r = constrain(power_r, -1000, 1000);
+
+  power_l = (power_l * 7.5);
+  power_r = (power_r * 7.5);
+
+  vesc.setRPM(power_l);
+  vesc.setRPM(power_r, CAN_ID_R);
+
+  //commandMotor(LeftMotor, power_l);
+  //commandMotor(RightMotor, power_r);
 
   delay(25);
 }
