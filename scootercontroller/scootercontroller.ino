@@ -17,6 +17,7 @@ static float i_term_left = 0.0;
 static float i_term_right = 0.0;
 
 static bool reverse = false;
+static bool braking = false;
 
 #include <VescUart.h>
 
@@ -40,92 +41,97 @@ float v = 0;
 float w_lag = 0;
 float w = 0;
 
+#define RPM_PER_MPH 603.0
+
+#define MAX_SPEED 10.0
+
+#define LOOP_PERIOD_MS 25
+
+#define ACCEL_RAMP (5.0 * (LOOP_PERIOD_MS / 1000.0))
+#define DECEL_RAMP (5.0 * (LOOP_PERIOD_MS / 1000.0))
+#define BRAKING_RAMP (30.0 * (LOOP_PERIOD_MS / 1000.0))
+
+#define STEER_RAMP (360.0 * (LOOP_PERIOD_MS / 1000.0))
+
+// Degrees per second
+#define MAX_STEER 60.0
+
+#define WHEEL_BASE_MILES (30.375 / 63360.0)
+
 void loop() {
   //readLeftMotorSerial();
   //readRightMotorSerial();
 
   mapJoystickToVandW(v, w);
+  
+  if (braking) {
+    cruise_control = false;
 
-  if (!cruise_control) {
-    if (v > v_lag + 5) {
-      v_lag += 5;
-    } else if (v < v_lag - 15) {
-      v_lag -= 15;
+    v = 0;
+
+    if (v < v_lag - BRAKING_RAMP) {
+      v_lag -= BRAKING_RAMP;
     } else {
-      v_lag = v;
+      v_lag = 0.0;
     }
-    v_lag = max(v_lag, 0.0f);
+  } else {
+    if (!cruise_control) {
+      if (v > v_lag + ACCEL_RAMP) {
+        v_lag += ACCEL_RAMP;
+      } else if (v < v_lag - DECEL_RAMP) {
+        v_lag -= DECEL_RAMP;
+      } else {
+        v_lag = v;
+      }
+      v_lag = max(v_lag, 0.0f);
+    }
   }
 
-  if (w > w_lag + 15) {
-    w_lag += 15;
-  } else if (w < w_lag - 15) {
-    w_lag -= 15;
+  float v_mph = v_lag;
+  if (reverse) {
+    v_mph *= -1.0;
+  }
+
+  if (w > w_lag + STEER_RAMP) {
+    w_lag += STEER_RAMP;
+  } else if (w < w_lag - STEER_RAMP) {
+    w_lag -= STEER_RAMP;
   } else {
     w_lag = w;
   }
 
-  if (v_lag == 0 && w_lag == 0) {
-    i_term_left = 0;
-    i_term_right = 0;
+  // degrees per second
+  float w_rate = w_lag * 2 * M_PI / 360;
+  // degrees per hour
+  w_rate *= 3600.0;
+  float turn_rate_mph = w_rate * WHEEL_BASE_MILES / 2.0;
+
+  float mph_l = (v_mph + turn_rate_mph);
+  float mph_r = (v_mph - turn_rate_mph);
+
+  if (abs(mph_l) > MAX_SPEED || abs(mph_r) > MAX_SPEED) {
+    float divisor = max(abs(mph_l), abs(mph_r)) / MAX_SPEED;
+    mph_l = mph_l / divisor;
+    mph_r = mph_r / divisor;
   }
 
-  float vl = (v_lag + w_lag);
-  float vr = (v_lag - w_lag);
+  mph_l = constrain(mph_l, -MAX_SPEED, MAX_SPEED);
+  mph_r = constrain(mph_r, -MAX_SPEED, MAX_SPEED);
 
-  // Ensure that turning with no throttle
-  // won't just throw away half the power
-  //float discarded_turn = min(0.0f, min(vl, vr));
-  //vl -= discarded_turn;
-  //vr -= discarded_turn;
+  float erpm_l = mph_l * RPM_PER_MPH;
+  float erpm_r = mph_r * RPM_PER_MPH; 
 
-  //vl = max(vl, 0.0f);
-  //vr = max(vr, 0.0f);
-  if (vl > 1000 || vr > 1000) {
-    float divisor = max(vl, vr);
-    vl = vl * 1000 / divisor;
-    vr = vr * 1000 / divisor;
-  }
+  vesc.setRPM(erpm_l);
+  vesc.setRPM(erpm_r, CAN_ID_R);
 
-  if (reverse) {
-    vl *= -1;
-    vr *= -1;
-  }
-
-  // P controller
-  float vl_err = vl - leftmotor_speed;
-  float vr_err = vr - rightmotor_speed;
-
-  i_term_left = constrain(i_term_left + vl_err, -i_max, i_max);
-  i_term_right = constrain(i_term_right + vr_err, -i_max, i_max);
-
-  // Note that the mapping from RPM to power is almost 1:1 (0-750 to 0-1000), so
-  // we don't need to do any extra math here.
-  //int32_t power_l = (int32_t)(vl + vl_err * kp + i_term_left * ki);
-  //int32_t power_r = (int32_t)(vr + vr_err * kp + i_term_right * ki);
-
-  int32_t power_l = (int32_t)(vl);
-  int32_t power_r = (int32_t)(vr);
-
-  power_l = constrain(power_l, -1000, 1000);
-  power_r = constrain(power_r, -1000, 1000);
-
-  power_l = (power_l * 7.5);
-  power_r = (power_r * 7.5);
-
-  vesc.setRPM(power_l);
-  vesc.setRPM(power_r, CAN_ID_R);
-
-  //commandMotor(LeftMotor, power_l);
-  //commandMotor(RightMotor, power_r);
-
-  delay(25);
+  delay(LOOP_PERIOD_MS);
 }
 
 void mapJoystickToVandW(float &v, float &w) {
-  v = joystickY > 0 ? map(joystickY, 0, 127, 0, 750) : 0;
-  v = v * v / 750;
-  w = map(joystickX, -128, 127, -100.0, 100.0);
+  v = joystickY > 0 ? map(joystickY, 0, 127, 0.0, MAX_SPEED) : 0;
+  v = v * v / MAX_SPEED;
+
+  w = map(joystickX, -128, 127, -MAX_STEER, MAX_STEER);
 
   // Map v to lower range depending on current mode
   if (baby_mode) {

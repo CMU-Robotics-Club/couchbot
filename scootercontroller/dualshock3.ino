@@ -110,4 +110,11 @@ void dualshockNotify() {
   if (Ps3.event.button_up.r1) {
     reverse = false;
   }
+
+  if (Ps3.event.button_down.l1) {
+    braking = true;
+  }
+  if (Ps3.event.button_up.l1) {
+    braking = false;
+  }
 }
