@@ -39,12 +39,12 @@ void dualshockNotify() {
     }
   } else {
     if (Ps3.event.button_up.up) {
-      v_lag += 10;
-      v_lag = constrain(v_lag, 0, 750);
+      v_lag += 0.25;
+      v_lag = constrain(v_lag, 0, MAX_SPEED);
     }
     if (Ps3.event.button_up.down) {
-      v_lag -= 10;
-      v_lag = constrain(v_lag, 0, 750);
+      v_lag -= 0.25;
+      v_lag = constrain(v_lag, 0, MAX_SPEED);
     }
   }
 
@@ -87,14 +87,12 @@ void dualshockNotify() {
     }
   }
 
+  if (Ps3.event.button_down.cross) {
+    reverse = true;
+  }
   if (Ps3.event.button_up.cross) {
-    Ps3.setRumble(100.0);
-    LeftMotor.end();
-    RightMotor.end();
-    delay(100);
-    motorControllerSetup();
-    delay(150);
-    Ps3.setRumble(0.0);
+    reverse = false;
+    reverseGracePeriod = 5;
   }
 
   if (Ps3.event.button_up.square) {
@@ -105,10 +103,10 @@ void dualshockNotify() {
   }
 
   if (Ps3.event.button_down.r1) {
-    reverse = true;
+    braking = true;
   }
   if (Ps3.event.button_up.r1) {
-    reverse = false;
+    braking = false;
   }
 
   if (Ps3.event.button_down.l1) {
