@@ -15,9 +15,6 @@ static const float DECEL_RAMP = (1.0 * (LOOP_PERIOD_MS / 1000.0));
 static const float BRAKING_RAMP = (100.0 * (LOOP_PERIOD_MS / 1000.0));
 static const float STEER_RAMP = (360.0 * (LOOP_PERIOD_MS / 1000.0));
 
-static const float VEL_TURN_DAMP_FACTOR = 0.2;  // How much to reduce forward velocity when turning
-                                                // 0 = no damping, 1 = full
-
 // Variables
 static int16_t joystickX = 0;
 static int16_t joystickY = 0;
@@ -98,7 +95,6 @@ void loop() {
     --reverseGracePeriod;
   }
 
-  // float v_damped = v_lag * (1 - (abs(w_lag) / MAX_STEER * VEL_TURN_DAMP_FACTOR));
   setSpeed(v_lag, w_lag);
   delay(LOOP_PERIOD_MS);
 }
