@@ -50,7 +50,7 @@ void dualshockNotify() {
 
 
   /* Secret SPEEEEEED mode */
-  if (abs(joystickX) + abs(joystickY) < 10) {
+  if (current_speed < 0.1) {
     // Only change speed mode when not moving
     if (abs(Ps3.event.analog_changed.button.triangle)) {
       int32_t speed_index = Ps3.data.analog.button.triangle / 64;
@@ -85,6 +85,13 @@ void dualshockNotify() {
       delay(250);
       Ps3.setRumble(0.0);
     }
+
+    if (Ps3.event.button_up.square) {
+      baby_mode = !baby_mode;
+      Ps3.setRumble(100.0);
+      delay(250);
+      Ps3.setRumble(0.0);
+    }
   }
 
   if (Ps3.event.button_down.cross) {
@@ -93,13 +100,6 @@ void dualshockNotify() {
   if (Ps3.event.button_up.cross) {
     reverse = false;
     reverseGracePeriod = 5;
-  }
-
-  if (Ps3.event.button_up.square) {
-    baby_mode = !baby_mode;
-    Ps3.setRumble(100.0);
-    delay(250);
-    Ps3.setRumble(0.0);
   }
 
   if (Ps3.event.button_down.r1) {

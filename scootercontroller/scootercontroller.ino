@@ -1,5 +1,7 @@
 #include <VescUart.h>
 
+#define DEBUG true
+
 // Constants
 static const uint32_t CAN_ID_R = 61;
 
@@ -10,9 +12,11 @@ static const float MAX_SPEED = 12.0;        // Miles per hour
 static const float MAX_STEER = 60.0;        // Degrees per second
 static const uint32_t LOOP_PERIOD_MS = 25;  // Milliseconds
 
-static const float ACCEL_RAMP = (3.0 * (LOOP_PERIOD_MS / 1000.0));
-static const float DECEL_RAMP = (1.0 * (LOOP_PERIOD_MS / 1000.0));
-static const float BRAKING_RAMP = (100.0 * (LOOP_PERIOD_MS / 1000.0));
+static const float ACCEL_RAMP = (5.0 * (LOOP_PERIOD_MS / 1000.0));
+static const float DECEL_RAMP = (10.0 * (LOOP_PERIOD_MS / 1000.0));
+static const float DECEL_BRAKE_CURRENT = 1.0;
+static const float DECEL_BRAKE_STEER_MODULATION = 30.0;
+static const float EBRAKE_CURRENT = 100.0;
 static const float STEER_RAMP = (360.0 * (LOOP_PERIOD_MS / 1000.0));
 
 // Variables
@@ -30,11 +34,17 @@ static bool braking = false;
 
 static int reverseGracePeriod = 0;
 
+static float current_speed = 0;
+
 VescUart vesc;
 
 void setup() {
   dualshockSetup();
   delay(1000);
+
+#if DEBUG
+  Serial.begin(115200);
+#endif
 
   Serial2.begin(115200);
   vesc.setSerialPort(&Serial2);
@@ -50,13 +60,8 @@ void loop() {
 
   if (braking) {
     cruise_control = false;
-    v = 0;
-
-    if (v < v_lag - BRAKING_RAMP) {
-      v_lag -= BRAKING_RAMP;
-    } else {
-      v_lag = 0.0;
-    }
+    v = 0.0;
+    v_lag = 0.0;
   } else {
     if (reverse) {
       v *= -1.0;
@@ -95,7 +100,26 @@ void loop() {
     --reverseGracePeriod;
   }
 
-  setSpeed(v_lag, w_lag);
+  current_speed = current_speed * 0.75 + read_speed() * 0.25;
+
+#if DEBUG
+  Serial.printf("%f %f\n", current_speed, v_lag);
+#endif
+
+  // If we need to slow down, set the brake current instead of speed target
+  if (braking) {
+    vesc.setBrakeCurrent(EBRAKE_CURRENT);
+    vesc.setBrakeCurrent(EBRAKE_CURRENT, CAN_ID_R);
+  } else {
+    if (v_lag > 0.5 && abs(current_speed) > abs(v_lag) + 0.05) {
+      float brake_l = DECEL_BRAKE_CURRENT - (w_lag / MAX_STEER) * DECEL_BRAKE_STEER_MODULATION;
+      float brake_r = DECEL_BRAKE_CURRENT + (w_lag / MAX_STEER) * DECEL_BRAKE_STEER_MODULATION;
+      vesc.setBrakeCurrent(max(0.0f, brake_l));
+      vesc.setBrakeCurrent(max(0.0f, brake_r), CAN_ID_R);
+    } else {
+      setSpeed(v_lag, w_lag);
+    }
+  }
   delay(LOOP_PERIOD_MS);
 }
 
@@ -157,4 +181,16 @@ void mapJoystickToVandW(float &v, float &w) {
         }
     }
   }
+}
+
+float read_speed() {
+  vesc.getVescValues();
+  float leftRPM = vesc.data.rpm;
+  vesc.getVescValues(CAN_ID_R);
+  float rightRPM = vesc.data.rpm;
+
+  float avgRPM = (leftRPM + rightRPM) / 2.0;
+  float speed = avgRPM / RPM_PER_MPH;
+
+  return speed;
 }
